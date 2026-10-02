@@ -1,0 +1,7 @@
+recursive-include tests *.py *.json *.md
+prune input
+prune cache
+prune output
+prune prompts
+prune .cache
+prune .venv

@@ -1,0 +1,125 @@
+{
+  "episodes": {
+    "paging": {
+      "iterationType": "cursor",
+      "hasNextPage": false,
+      "hasPreviousPage": false,
+      "idStart": "squirtle_s3e1",
+      "idEnd": "squirtle_s3e11",
+      "nbContents": 11
+    },
+    "contents": [
+      {
+        "contentID": "squirtle_s3e1",
+        "seasonNumber": 3,
+        "episodeNumber": 1,
+        "brandID": "squirtle_brand",
+        "durationLabel": "21 min",
+        "availabilityEndDate": 1788213540000
+      },
+      {
+        "contentID": "squirtle_s3e2",
+        "seasonNumber": 3,
+        "episodeNumber": 2,
+        "brandID": "squirtle_brand",
+        "durationLabel": "21 min",
+        "availabilityEndDate": 1788213540000
+      },
+      {
+        "contentID": "squirtle_s3e3",
+        "seasonNumber": 3,
+        "episodeNumber": 3,
+        "brandID": "squirtle_brand",
+        "durationLabel": "21 min",
+        "availabilityEndDate": 1790805540000
+      },
+      {
+        "contentID": "squirtle_s3e4",
+        "seasonNumber": 3,
+        "episodeNumber": 4,
+        "brandID": "squirtle_brand",
+        "durationLabel": "21 min",
+        "availabilityEndDate": 1790805540000
+      },
+      {
+        "contentID": "squirtle_s3e5",
+        "seasonNumber": 3,
+        "episodeNumber": 5,
+        "brandID": "squirtle_brand",
+        "durationLabel": "21 min",
+        "availabilityEndDate": 1790805540000
+      },
+      {
+        "contentID": "squirtle_s3e6",
+        "seasonNumber": 3,
+        "episodeNumber": 6,
+        "brandID": "squirtle_brand",
+        "durationLabel": "21 min",
+        "availabilityEndDate": 1790805540000
+      },
+      {
+        "contentID": "squirtle_s3e7",
+        "seasonNumber": 3,
+        "episodeNumber": 7,
+        "brandID": "squirtle_brand",
+        "durationLabel": "21 min",
+        "availabilityEndDate": 1790805540000
+      },
+      {
+        "contentID": "squirtle_s3e8",
+        "seasonNumber": 3,
+        "episodeNumber": 8,
+        "brandID": "squirtle_brand",
+        "durationLabel": "21 min",
+        "availabilityEndDate": 1790805540000
+      },
+      {
+        "contentID": "squirtle_s3e9",
+        "seasonNumber": 3,
+        "episodeNumber": 9,
+        "brandID": "squirtle_brand",
+        "durationLabel": "21 min",
+        "availabilityEndDate": 1790805540000
+      },
+      {
+        "contentID": "squirtle_s3e10",
+        "seasonNumber": 3,
+        "episodeNumber": 10,
+        "brandID": "squirtle_brand",
+        "durationLabel": "21 min",
+        "availabilityEndDate": 1790805540000
+      },
+      {
+        "contentID": "squirtle_s3e11",
+        "seasonNumber": 3,
+        "episodeNumber": 11,
+        "brandID": "squirtle_brand",
+        "durationLabel": "43 min",
+        "availabilityEndDate": 1790805540000
+      }
+    ]
+  },
+  "selector": [
+    {
+      "contentID": "squirtle_s1",
+      "seasonNumber": 1,
+      "onClick": {
+        "URLPage": "https://hodor.canalplus.pro/api/v2/mycanal/episodes/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/squirtle_brand?seasonID=squirtle_s1"
+      }
+    },
+    {
+      "contentID": "squirtle_s2",
+      "seasonNumber": 2,
+      "onClick": {
+        "URLPage": "https://hodor.canalplus.pro/api/v2/mycanal/episodes/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/squirtle_brand?seasonID=squirtle_s2"
+      }
+    },
+    {
+      "contentID": "squirtle_s3",
+      "seasonNumber": 3,
+      "onClick": {
+        "URLPage": "https://hodor.canalplus.pro/api/v2/mycanal/episodes/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/squirtle_brand?seasonID=squirtle_s3"
+      }
+    }
+  ]
+}

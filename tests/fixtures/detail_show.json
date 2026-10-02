@@ -1,0 +1,62 @@
+{
+  "detail": {
+    "contentID": "fiction_show_50002",
+    "title": "The Debugger",
+    "genre": "Séries",
+    "subgenre": "Série Science-fiction"
+  },
+  "tracking": {
+    "dataLayer": {
+      "genre": "Séries",
+      "subgenre": "Série Science-fiction"
+    }
+  },
+  "actionLayout": {
+    "primaryActions": [
+      {
+        "type": "play",
+        "onClick": {
+          "displayTemplate": "player",
+          "contentID": "fiction_episode_50002",
+          "URLEpisodesList": "https://hodor.canalplus.pro/api/v2/mycanal/episodes/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/fiction_show_50002?seasonID=fiction_season_50002",
+          "episodesList": {
+            "displayTemplate": "episodesList",
+            "URLPage": "https://hodor.canalplus.pro/api/v2/mycanal/episodes/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/fiction_show_50002?seasonID=fiction_season_50002",
+            "parameters": [
+              {
+                "in": "parameters",
+                "id": "featureToggles",
+                "enum": [
+                  "tvodFunnelV5",
+                  "registerProspect"
+                ]
+              }
+            ]
+          }
+        },
+        "tracking": {
+          "dataLayer": {
+            "seasonNumber": 1,
+            "episodeNumber": 1
+          }
+        }
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "displayTemplate": "episodesList",
+      "URLPage": "https://hodor.canalplus.pro/api/v2/mycanal/episodes/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/fiction_show_50002?seasonID=fiction_season_50002",
+      "parameters": [
+        {
+          "in": "parameters",
+          "id": "featureToggles",
+          "enum": [
+            "tvodFunnelV5",
+            "registerProspect"
+          ]
+        }
+      ]
+    }
+  ]
+}

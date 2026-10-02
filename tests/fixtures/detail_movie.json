@@ -1,0 +1,15 @@
+{
+  "tracking": {"dataLayer": {"subgenre": "Film Science-fiction"}},
+  "detail": {
+    "informations": {
+      "contentID": "fiction_50001",
+      "title": "The Last Compiler",
+      "contentAvailability": {
+        "availabilities": {
+          "download": {"availabilityEndDate": 1793660340000},
+          "stream": {"label": "Dispo. jusqu'au 02/11/2026"}
+        }
+      }
+    }
+  }
+}
