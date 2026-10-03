@@ -1,5 +1,7 @@
 """Conservative, sequential Hodor transport shared by reports and acquisition."""
 
+import json
+from collections.abc import Mapping
 import math
 import random
 import re
@@ -11,6 +13,7 @@ from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 import requests
 
 from .logging import get_logger
+from .diagnostics import debug_failure, debug_enabled, response_body
 
 log = get_logger(__name__)
 DEFAULT_DELAY = 0.18
@@ -22,10 +25,36 @@ RETRY_STATUSES = {429, 502, 503, 504}
 
 class HodorError(Exception):
     """Technical failure, independent of application report statuses."""
-    def __init__(self, message: str, kind: str = 'http', status_code: int | None = None) -> None:
+    def __init__(self, message: str, kind: str = 'http', status_code: int | None = None, policy_error: str | None = None) -> None:
         super().__init__(message)
         self.kind = kind
         self.status_code = status_code
+        self.policy_error = policy_error
+
+
+def hodor_policy_error(body: object) -> str | None:
+    """Recognize explicit server diagnostics without retaining response contents."""
+    if not isinstance(body, str) or len(body) > 8192:
+        return None
+    message = 'tokenPass header forbidden for this request'
+    def recognized(value: object) -> bool:
+        if isinstance(value, str):
+            return value.strip().casefold() == message.casefold()
+        if isinstance(value, list):
+            return any(recognized(v) for v in value)
+        if isinstance(value, dict):
+            if any(recognized(value[k]) for k in ('message', 'error', 'errors', 'text') if k in value):
+                return True
+            tracking = value.get('tracking')
+            layer = tracking.get('dataLayer') if isinstance(tracking, dict) else None
+            return isinstance(layer, dict) and recognized(layer.get('error_message'))
+        return False
+    if recognized(body):
+        return 'token_pass_forbidden'
+    try:
+        return 'token_pass_forbidden' if recognized(json.loads(body)) else None
+    except (ValueError, RecursionError):
+        return None
 
 
 def validate_api_url(url: str, resource: str | None = None) -> None:
@@ -117,8 +146,47 @@ class CanalClient:
     def _fetch(self, url: str, content_id: str, resource: str) -> dict:
         payload = self.get_json(url, content_id=content_id, resource=resource)
         if not isinstance(payload.get(resource), dict):
+            debug_failure(log, 'api_structure_debug', secrets=self._diagnostic_secrets(), url=url, content_id=content_id,
+                          expected=resource + ' object', payload=payload)
             raise HodorError(f'Missing or invalid {resource} object', 'parsing')
         return payload
+
+    def _diagnostic_secrets(self, headers: dict[str, str] | None = None,
+                            response: requests.Response | None = None) -> tuple[str, ...]:
+        secret_names = {'tokenpass', 'xx-profile-id', 'authorization', 'proxy-authorization',
+                        'cookie', 'set-cookie'}
+        values = []
+        for mapping in (self.session.headers, headers or {},
+                        getattr(response, 'headers', {}) if response is not None else {}):
+            if isinstance(mapping, Mapping):
+                for key, value in mapping.items():
+                    if key.casefold() in secret_names and isinstance(value, str):
+                        values.append(value)
+                        if key.casefold() in ('cookie', 'set-cookie'):
+                            values.extend(part.partition('=')[2].strip() for part in value.split(';') if '=' in part)
+                        elif key.casefold() == 'authorization':
+                            values.append(value.split(' ', 1)[-1])
+        cookies = self.session.cookies.get_dict()
+        if isinstance(cookies, Mapping):
+            values.extend(v for v in cookies.values() if isinstance(v, str))
+        return tuple(value for value in values if value)
+
+    def _response_diagnostic(self, event: str, url: str, response: requests.Response,
+                             headers: dict[str, str] | None, content_id: str = '',
+                             error: BaseException | None = None, **context: object) -> None:
+        if not debug_enabled(log):
+            return
+        try:
+            secrets = self._diagnostic_secrets(headers, response)
+            body = response_body(response.text, secrets)
+        except Exception:
+            debug_failure(log, event, diagnostic_unavailable=True,
+                          content_id=content_id, status_code=response.status_code)
+            return
+        debug_failure(log, event, error, secrets, url=url, content_id=content_id,
+                      status_code=response.status_code, response_body=body,
+                      response_headers=dict(response.headers) if isinstance(response.headers, Mapping) else {},
+                      **context)
 
     def get_bytes(self, url: str, headers: dict[str, str] | None = None) -> bytes:
         """Read decompressed bytes; application-specific URL policies remain with callers."""
@@ -134,9 +202,12 @@ class CanalClient:
         try:
             try:
                 payload = response.json()
-            except ValueError:
+            except ValueError as exc:
+                self._response_diagnostic('api_parsing_debug', url, response, headers, content_id, exc)
                 raise HodorError('Response is not valid JSON', 'parsing') from None
             if not isinstance(payload, dict):
+                self._response_diagnostic('api_parsing_debug', url, response, headers, content_id,
+                                          expected='JSON object')
                 raise HodorError('Expected a JSON object', 'parsing')
             return payload
         finally:
@@ -152,7 +223,6 @@ class CanalClient:
             self._has_requested = True
             try:
                 # Redirects must not turn a validated public URL into another target.
-                # headers.pop('tokenPass')
                 options = {'headers': headers} if headers is not None else {}
                 response = self.session.get(
                     url, timeout=TIMEOUT_SECONDS, allow_redirects=False, **options,
@@ -161,7 +231,11 @@ class CanalClient:
                 reason = type(exc).__name__
                 status_code = None
                 retry_after = None
+                debug_failure(log, 'api_transport_debug', exc, self._diagnostic_secrets(headers),
+                              url=url, content_id=content_id, attempt=attempt)
             except requests.RequestException as exc:
+                debug_failure(log, 'api_transport_debug', exc, self._diagnostic_secrets(headers),
+                              url=url, content_id=content_id, attempt=attempt)
                 raise HodorError(type(exc).__name__) from None
             else:
                 status_code = response.status_code
@@ -169,12 +243,16 @@ class CanalClient:
                     return response
                 try:
                     if status_code not in RETRY_STATUSES:
-                        log.warning('hodor_error', url=url,
-                                            header_names=list((headers or {}).keys()),
-                                            error=response.text)
-                        raise HodorError(f'HTTP {status_code}', status_code=status_code)
+                        code = hodor_policy_error(response.text) if status_code == 400 else None
+                        log.warning('hodor_error', content_id=content_id,
+                                    status_code=status_code, policy_error=code)
+                        self._response_diagnostic('api_http_debug', url, response, headers, content_id,
+                                                  resource=resource, attempt=attempt, policy_error=code)
+                        raise HodorError(f'HTTP {status_code}', status_code=status_code, policy_error=code)
                     reason = f'HTTP {status_code}'
                     retry_after = retry_after_seconds(response.headers.get('Retry-After'))
+                    self._response_diagnostic('api_http_debug', url, response, headers, content_id,
+                                              resource=resource, attempt=attempt)
                 finally:
                     response.close()
 

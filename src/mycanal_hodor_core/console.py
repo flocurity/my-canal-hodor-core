@@ -70,6 +70,13 @@ class MultilineConsoleRenderer:
             if not lines:
                 lines = [""]
 
+            if method_name == 'debug':
+                # Diagnostic blocks must not align to a potentially huge context line.
+                replacement = '\n' + '\n'.join('  ' + line for line in lines)
+                rendered = (rendered[:marker_pos] + replacement
+                            + rendered[marker_pos + len(marker):])
+                continue
+
             replacement = lines[0]
 
             if len(lines) > 1:
