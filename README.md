@@ -19,3 +19,5 @@ Tests are offline, with synthetic fixtures. Core has no application dependencies
 HTTP errors expose a sanitized optional `HodorError.policy_error` diagnostic code for explicitly recognized server messages. Transport does not learn/apply application policies or retain error bodies; consumers own adaptive behavior.
 
 Failure diagnostics follow the configured structlog DEBUG level. Normal error events stay unchanged; DEBUG adds sanitized HTTP response bodies/context or exception chains without frame locals. INFO and higher suppress these details. Existing console log-level defaults are unchanged.
+
+Episode content IDs are unique identities; editorial numbers may repeat. Catalogs preserve Hodor list order, including units with technical synthetic numbers.

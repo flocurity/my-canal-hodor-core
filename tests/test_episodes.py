@@ -172,7 +172,10 @@ def test_mixed_catalog_preserves_uniqueness_for_synthetic_numbers():
     catalog, _ = parse_catalog(payload, 'season_mammouth')
     assert [episode.number for episode in catalog.episodes] == [2621952550006, 2600849850006, 3]
     payload['episodes']['contents'][2]['episodeNumber'] = 2621952550006
-    with pytest.raises(ValueError, match='Duplicate episode identities or numbers'):
+    repeated_number, _ = parse_catalog(payload, 'season_mammouth')
+    assert [e.number for e in repeated_number.episodes] == [2621952550006, 2600849850006, 2621952550006]
+    payload['episodes']['contents'][2]['contentID'] = '26219525_50006'
+    with pytest.raises(ValueError, match='Duplicate episode identities'):
         parse_catalog(payload, 'season_mammouth')
 
 
@@ -184,3 +187,18 @@ def test_episode_title_is_optional_raw_editorial_data(title, expected):
                             'contents': [{'contentID': '123_45', 'title': title, 'durationLabel': '57 min'}]}}
     catalog, _ = parse_catalog(payload, 'season_mammouth')
     assert catalog.episodes[0].title == expected
+
+
+@pytest.mark.parametrize('duplicate_identity', [False, True])
+def test_editorial_number_duplicates_preserve_identity_and_order(duplicate_identity):
+    from mycanal_hodor_core.episodes import Episode, Season, validate_catalog
+    season = Season('season_mammouth', 0)
+    episodes = [Episode('unit_a', 173, 27, None),
+                Episode('unit_a' if duplicate_identity else 'unit_b', 173, 30, None)]
+    if duplicate_identity:
+        with pytest.raises(ValueError, match='Duplicate episode identities'):
+            validate_catalog(season, (season,), episodes)
+    else:
+        validate_catalog(season, (season,), episodes)
+        assert [e.content_id for e in episodes] == ['unit_a', 'unit_b']
+        assert [e.number for e in episodes] == [173, 173]

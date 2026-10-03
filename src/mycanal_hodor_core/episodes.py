@@ -59,8 +59,9 @@ def validate_catalog(season: Season, seasons: tuple[Season, ...], episodes: list
             or len({s.number for s in seasons}) != len(seasons)):
         raise ValueError('Missing or ambiguous season selector')
     ids = [e.content_id for e in episodes if e.content_id]
-    if len(set(ids)) != len(ids) or len({e.number for e in episodes}) != len(episodes):
-        raise ValueError('Duplicate episode identities or numbers')
+    # Hodor may assign the same editorial number to distinct units.
+    if len(set(ids)) != len(ids):
+        raise ValueError('Duplicate episode identities')
 
 
 def episode_continuation(paging: object, season_id: str, brand_id: str) -> str | None:
