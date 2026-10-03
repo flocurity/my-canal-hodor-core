@@ -152,6 +152,7 @@ class CanalClient:
             self._has_requested = True
             try:
                 # Redirects must not turn a validated public URL into another target.
+                # headers.pop('tokenPass')
                 options = {'headers': headers} if headers is not None else {}
                 response = self.session.get(
                     url, timeout=TIMEOUT_SECONDS, allow_redirects=False, **options,
@@ -168,6 +169,9 @@ class CanalClient:
                     return response
                 try:
                     if status_code not in RETRY_STATUSES:
+                        log.warning('hodor_error', url=url,
+                                            header_names=list((headers or {}).keys()),
+                                            error=response.text)
                         raise HodorError(f'HTTP {status_code}', status_code=status_code)
                     reason = f'HTTP {status_code}'
                     retry_after = retry_after_seconds(response.headers.get('Retry-After'))

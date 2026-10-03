@@ -7,6 +7,11 @@ dependencies = ['requests>=2.34.2', 'structlog>=26.1.0']
 license = "MIT"
 license-files = ["LICENSE", "NOTICE"]
 
+[project.optional-dependencies]
+interactive = [
+    "prompt-toolkit>=3.0.53",
+]
+
 [build-system]
 requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
@@ -21,4 +26,7 @@ addopts = '-m "not integration"'
 markers = ["integration: opt-in real API tests"]
 
 [dependency-groups]
-dev = ["pytest>=9.1.1"]
+dev = [
+    "prompt-toolkit>=3.0.53",
+    "pytest>=9.1.1",
+]

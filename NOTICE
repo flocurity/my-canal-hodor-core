@@ -1,3 +1,5 @@
 Shared primitives extracted from my-canal-expiry-tracker (MIT, copyright 2026 flocurity).
 Console rendering originated in the project-provided personal logging module.
 Third-party dependencies retain their own licenses.
+
+The browser bootstrap parser and multiline prompt were extracted from the MIT-licensed my-canal-expiry-tracker acquisition module for use by both applications.
