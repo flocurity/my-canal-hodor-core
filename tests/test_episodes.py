@@ -119,7 +119,7 @@ def test_episode_season_omission_uses_validated_catalog(context_number, coordina
 
 
 @pytest.mark.parametrize('episode_coordinate', [{}, {'episodeNumber': None},
-    {'episodeNumber': 0}, {'episodeNumber': -1}, {'episodeNumber': True},
+    {'episodeNumber': -1}, {'episodeNumber': True},
     {'episodeNumber': '177'}, {'episodeNumber': 177.0}])
 def test_omitted_season_does_not_relax_episode_number(episode_coordinate):
     from mycanal_hodor_core.episodes import parse_catalog
@@ -133,7 +133,7 @@ def test_omitted_season_does_not_relax_episode_number(episode_coordinate):
 @pytest.mark.parametrize('coordinate,accepted', [
     ({'episodeNumber': 7}, True), ({}, True),
     ({'episodeNumber': None}, False), ({'episodeNumber': '7'}, False),
-    ({'episodeNumber': True}, False), ({'episodeNumber': 0}, False),
+    ({'episodeNumber': True}, False), ({'episodeNumber': 0}, True),
     ({'episodeNumber': -1}, False), ({'episodeNumber': 7.0}, False),
 ])
 def test_synthetic_episode_number_only_for_absent_key(coordinate, accepted):
@@ -202,3 +202,17 @@ def test_editorial_number_duplicates_preserve_identity_and_order(duplicate_ident
         validate_catalog(season, (season,), episodes)
         assert [e.content_id for e in episodes] == ['unit_a', 'unit_b']
         assert [e.number for e in episodes] == [173, 173]
+
+
+def test_zero_episode_and_sequence_are_explicit_raw_coordinates():
+    from mycanal_hodor_core.episodes import parse_catalog
+    payload = {'selector': [{'contentID':'season_mammouth', 'seasonNumber':1}],
+               'episodes': {'paging': {'hasNextPage':False,'hasPreviousPage':False},
+                            'contents': [{'contentID':f'unit_{index}', 'episodeNumber':n,
+                                          'seasonNumber':1,'title':'Pilot'} for index, n in enumerate((0,1,2,0))]}}
+    catalog, _ = parse_catalog(payload, 'season_mammouth')
+    assert [e.number for e in catalog.episodes] == [0,1,2,0]
+    # Identity uniqueness still applies, even to episode zero.
+    payload['episodes']['contents'][-1]['contentID'] = 'unit_other'
+    catalog, _ = parse_catalog(payload, 'season_mammouth')
+    assert [e.number for e in catalog.episodes] == [0,1,2,0]

@@ -13,6 +13,11 @@ def positive_number(value: object) -> int | None:
     return value if type(value) is int and value > 0 else None
 
 
+def episode_number(value: object) -> int | None:
+    """Explicit Hodor numbering includes zero; absence alone uses a synthetic ID."""
+    return value if type(value) is int and value >= 0 else None
+
+
 def season_number(value: object) -> int | None:
     """Hodor exposes S0 as a real season, distinct from missing coordinates."""
     return value if type(value) is int and value >= 0 else None
@@ -134,7 +139,7 @@ def parse_catalog(payload: dict, season_id: str,
         number = None
         if isinstance(value, dict):
             if 'episodeNumber' in value:
-                number = positive_number(value['episodeNumber'])
+                number = episode_number(value['episodeNumber'])
             else:
                 # Technical identity only: never derive a viewing order from this number.
                 content_id = identifier(value.get('contentID'))
@@ -173,7 +178,7 @@ def _tracking_number(value: object, name: str) -> int | None:
 
     def visit(node: object) -> None:
         if isinstance(node, dict):
-            number = season_number(node.get(name)) if name == 'seasonNumber' else positive_number(node.get(name))
+            number = season_number(node.get(name)) if name == 'seasonNumber' else episode_number(node.get(name))
             if number is not None:
                 found.add(number)
             for child in node.values():
