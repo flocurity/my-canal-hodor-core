@@ -232,9 +232,21 @@ class CanalClient:
             try:
                 # Redirects must not turn a validated public URL into another target.
                 options = {'headers': headers} if headers is not None else {}
-                response = self.session.get(
-                    url, timeout=TIMEOUT_SECONDS, allow_redirects=False, **options,
-                )
+                started = time.monotonic()
+                outcome = 'failed'
+                status = None
+                try:
+                    response = self.session.get(
+                        url, timeout=TIMEOUT_SECONDS, allow_redirects=False, **options,
+                    )
+                    status = response.status_code
+                    outcome = 'response'
+                finally:
+                    # Measure the actual attempt, excluding pacing and retry backoff.
+                    log.debug('http_attempt_timing', content_id=content_id,
+                              resource=resource, attempt=attempt, outcome=outcome,
+                              status_code=status,
+                              duration_s=round(time.monotonic() - started, 6))
             except (requests.Timeout, requests.ConnectionError) as exc:
                 reason = type(exc).__name__
                 status_code = None

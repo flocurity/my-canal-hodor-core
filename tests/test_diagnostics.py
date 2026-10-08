@@ -72,7 +72,10 @@ def test_successful_http_has_no_failure_diagnostics(diagnostic_output, monkeypat
     with http.CanalClient() as client:
         monkeypatch.setattr(client.session, 'get', Mock(return_value=response))
         assert client.fetch('https://hodor.canalplus.pro/api/v2/mycanal/detail/fake/mammouth.json') == {'detail': {}}
-    assert output.getvalue() == ''
+    assert 'http_attempt_timing' in output.getvalue()
+    assert 'api_transport_debug' not in output.getvalue()
+    assert 'api_http_debug' not in output.getvalue()
+    assert 'api_structure_debug' not in output.getvalue()
 
 
 def test_plain_text_sensitive_headers_are_redacted():

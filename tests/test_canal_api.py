@@ -262,3 +262,19 @@ def test_request_failure_observer_preserves_retry_behavior(client, observer_fail
     session.get.side_effect = [http_response(503), http_response(200, {'recovered': True})]
     assert api.get_json('https://hodor.canalplus.pro/api/v2/mycanal/detail/' + 'a'*32 + '/123_45.json') == {'recovered': True}
     assert failures == [('HTTP 503', 1)]
+
+
+def test_attempt_timing_success_and_timeout(client, item, monkeypatch):
+    from structlog.testing import capture_logs
+    api, session, sleep = client
+    session.get.side_effect = [requests.ReadTimeout('sensitive'), http_response(payload={'detail': {}})]
+    ticks = iter([10, 20, 30, 32])
+    monkeypatch.setattr('mycanal_hodor_core.http.time.monotonic', lambda: next(ticks))
+    with capture_logs() as logs:
+        api.fetch(item.detail_url)
+    timings = [x for x in logs if x['event'] == 'http_attempt_timing']
+    assert [x['duration_s'] for x in timings] == [10, 2]
+    assert [x['attempt'] for x in timings] == [1, 2]
+    assert [x['outcome'] for x in timings] == ['failed', 'response']
+    assert [x['status_code'] for x in timings] == [None, 200]
+    assert all('url' not in x and 'sensitive' not in str(x) for x in timings)
