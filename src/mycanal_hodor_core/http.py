@@ -213,6 +213,14 @@ class CanalClient:
         finally:
             response.close()
 
+    def _notify_request_failure(self, reason: str, attempt: int) -> None:
+        observer = getattr(self, 'failure_observer', None)
+        if callable(observer):
+            try:
+                observer(reason, attempt)
+            except Exception:
+                pass  # Observability must not change transport behavior.
+
     def _request(self, url: str, content_id: str, resource: str | None,
                  headers: dict[str, str] | None = None) -> requests.Response:
         validate_api_url(url, resource)
@@ -236,6 +244,7 @@ class CanalClient:
             except requests.RequestException as exc:
                 debug_failure(log, 'api_transport_debug', exc, self._diagnostic_secrets(headers),
                               url=url, content_id=content_id, attempt=attempt)
+                self._notify_request_failure(type(exc).__name__, attempt)
                 raise HodorError(type(exc).__name__) from None
             else:
                 status_code = response.status_code
@@ -248,6 +257,7 @@ class CanalClient:
                                     status_code=status_code, policy_error=code)
                         self._response_diagnostic('api_http_debug', url, response, headers, content_id,
                                                   resource=resource, attempt=attempt, policy_error=code)
+                        self._notify_request_failure(f'HTTP {status_code}', attempt)
                         raise HodorError(f'HTTP {status_code}', status_code=status_code, policy_error=code)
                     reason = f'HTTP {status_code}'
                     retry_after = retry_after_seconds(response.headers.get('Retry-After'))
@@ -256,6 +266,7 @@ class CanalClient:
                 finally:
                     response.close()
 
+            self._notify_request_failure(reason, attempt)
             if retry_after is not None:
                 self._cooldown = retry_after
             else:

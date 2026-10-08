@@ -248,3 +248,17 @@ def test_episodes_rejects_private_or_unsafe_endpoints(client, url):
     with pytest.raises(HodorError):
         api.fetch_episodes(url)
     session.get.assert_not_called()
+
+
+@pytest.mark.parametrize('observer_fails', [False, True])
+def test_request_failure_observer_preserves_retry_behavior(client, observer_fails):
+    api, session, sleep = client
+    failures = []
+    def observer(reason, attempt):
+        failures.append((reason, attempt))
+        if observer_fails:
+            raise RuntimeError('diagnostic failure')
+    api.failure_observer = observer
+    session.get.side_effect = [http_response(503), http_response(200, {'recovered': True})]
+    assert api.get_json('https://hodor.canalplus.pro/api/v2/mycanal/detail/' + 'a'*32 + '/123_45.json') == {'recovered': True}
+    assert failures == [('HTTP 503', 1)]
