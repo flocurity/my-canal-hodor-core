@@ -216,3 +216,26 @@ def test_zero_episode_and_sequence_are_explicit_raw_coordinates():
     payload['episodes']['contents'][-1]['contentID'] = 'unit_other'
     catalog, _ = parse_catalog(payload, 'season_mammouth')
     assert [e.number for e in catalog.episodes] == [0,1,2,0]
+
+
+def test_long_single_season_catalog_with_repeated_editorial_numbers():
+    """Editorial year labels do not create seasons or episode identities."""
+    from mycanal_hodor_core.episodes import parse_catalog, validate_catalog
+    entries = [{'contentID': f'{900000 + index}_50001',
+                'episodeNumber': index % 73 + 1, 'seasonNumber': 0,
+                'title': f'Mammouth editorial year {index // 73}, unit {index % 73 + 1}',
+                'durationLabel': '20 min'} for index in range(584)]
+    payload = {'selector': [{'contentID': 'season_editorial_mammoth', 'seasonNumber': 0}],
+               'episodes': {'contents': entries,
+                            'paging': {'hasNextPage': False, 'hasPreviousPage': False}}}
+    catalog, _ = parse_catalog(payload, 'season_editorial_mammoth')
+    assert len(catalog.episodes) == 584
+    assert len({e.content_id for e in catalog.episodes}) == 584
+    assert [e.content_id for e in catalog.episodes] == [e['contentID'] for e in entries]
+    assert [e.number for e in catalog.episodes] == [e['episodeNumber'] for e in entries]
+    assert catalog.episodes[0].number == catalog.episodes[73].number
+    assert catalog.episodes[0].title != catalog.episodes[73].title
+    # An overlapping page must still be rejected after assembly.
+    with pytest.raises(ValueError, match='Duplicate episode identities'):
+        validate_catalog(catalog.season, catalog.seasons,
+                         list(catalog.episodes) + [catalog.episodes[0]])
