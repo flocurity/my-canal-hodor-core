@@ -20,7 +20,10 @@ def redact(value: object, secrets: tuple[str, ...] = ()) -> object:
     if isinstance(value, dict):
         if isinstance(value.get('name'), str) and _secret_key(value['name']):
             return {'name': '[REDACTED HEADER]'}
-        return {str(k): redact(v, secrets) for k, v in value.items() if not _secret_key(str(k))}
+        # Drop secret-bearing keys instead of masking them into colliding names.
+        return {str(k): redact(v, secrets) for k, v in value.items()
+                if not _secret_key(str(k))
+                and not any(secret and secret in str(k) for secret in secrets)}
     if isinstance(value, (list, tuple)):
         return [redact(v, secrets) for v in value]
     if isinstance(value, str):

@@ -34,6 +34,33 @@ def test_numeric_credentials_remain_secrets():
     assert redact('credential 0', ('0',)) == 'credential [REDACTED]'
 
 
+def test_registered_secrets_in_dictionary_keys_remove_entire_entries():
+    secret = 'SYNTHETIC.PRIVATE+'
+    payload = {secret: 'discard', 'prefix-' + secret + '-suffix': 'discard too',
+               '[REDACTED]': 'preserve', 'ordinary': 'preserve too'}
+    assert redact(payload, (secret, '')) == {
+        '[REDACTED]': 'preserve', 'ordinary': 'preserve too'}
+
+
+def test_registered_secrets_in_nested_dictionary_keys_are_removed():
+    secret = 'SYNTHETIC_PRIVATE'
+    payload = {'nested': [{secret: {'ordinary': 'discard'},
+                           'keep': {'prefix-' + secret: 'discard', 'echo': secret}}]}
+    assert redact(payload, (secret,)) == {
+        'nested': [{'keep': {'echo': '[REDACTED]'}}]}
+
+
+def test_dictionary_key_filter_preserves_existing_structural_redaction():
+    payload = {'title': 'Film 2000', 'profileId': 0, 'tokenPass': 'discard',
+               'echo': 'SYNTHETIC_PRIVATE',
+               'headers': [{'name': 'Authorization', 'value': 'discard'}],
+               'nested': {42: 'ordinary', 'empty': ''}}
+    assert redact(payload, ('SYNTHETIC_PRIVATE', '')) == {
+        'title': 'Film 2000', 'echo': '[REDACTED]',
+        'headers': [{'name': '[REDACTED HEADER]'}],
+        'nested': {'42': 'ordinary', 'empty': ''}}
+
+
 @pytest.mark.parametrize('profile_id', ['0', '42'])
 def test_profile_headers_do_not_register_business_substrings(profile_id):
     with http.CanalClient() as client:
