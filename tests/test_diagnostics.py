@@ -108,6 +108,43 @@ def test_non_http_exception_chain_and_traceback_are_sanitized(diagnostic_output,
     assert secret not in rendered
 
 
+@pytest.mark.parametrize('headers', [None, {'tokenPass': 'SYNTHETIC_PASS'}])
+@pytest.mark.parametrize('status', [400, 200])
+def test_curl_context_credentials_are_hidden_without_authentication(
+        diagnostic_output, monkeypatch, headers, status):
+    output = diagnostic_output(logging.DEBUG)
+    secrets = ('SYNTHETIC_HODOR', 'SYNTHETIC_PASS')
+    payload = {'message': 'visible marker ' + ' '.join(secrets)}
+    response = Mock(status_code=status, headers={}, text=json.dumps(payload))
+    response.json.return_value = payload
+    url = 'https://hodor.canalplus.pro/api/v2/mycanal/detail/fake/mammouth.json'
+    with http.CanalClient(delay=0, diagnostic_secrets=secrets) as client:
+        client.authentication = None
+        request = Mock(return_value=response)
+        monkeypatch.setattr(client.session, 'get', request)
+        with pytest.raises(http.HodorError):
+            if status == 400:
+                client.get_json(url, headers=headers)
+            else:
+                client.fetch(url)
+        assert 'tokenPass' not in client.session.headers
+        assert request.call_args.kwargs.get('headers') == (headers if status == 400 else None)
+    rendered = output.getvalue()
+    assert 'visible marker' in rendered
+    assert all(secret not in rendered for secret in secrets)
+
+
+def test_explicit_diagnostic_secrets_merge_with_live_authentication_and_headers():
+    with http.CanalClient(diagnostic_secrets=('CURL_HODOR', 'CURL_PASS')) as client:
+        client.authentication = Mock(secrets=['OLD_PASS'])
+        client.authentication.secrets.append('RENEWED_PASS')
+        client.session.cookies.set('session', 'COOKIE_SECRET')
+        secrets = client._diagnostic_secrets({'tokenPass': 'HEADER_PASS', 'xx-profile-id': '0'})
+    assert {'CURL_HODOR', 'CURL_PASS', 'OLD_PASS', 'RENEWED_PASS',
+            'HEADER_PASS', 'COOKIE_SECRET'} <= set(secrets)
+    assert '0' not in secrets
+
+
 def test_successful_http_has_no_failure_diagnostics(diagnostic_output, monkeypatch):
     output = diagnostic_output(logging.DEBUG)
     response = Mock(status_code=200, headers={}, text='{}')

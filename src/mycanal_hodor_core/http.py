@@ -121,10 +121,12 @@ def retry_after_seconds(value: str | None) -> float | None:
 
 
 class CanalClient:
-    def __init__(self, delay: float = DEFAULT_DELAY) -> None:
+    def __init__(self, delay: float = DEFAULT_DELAY, *,
+                 diagnostic_secrets: tuple[str, ...] = ()) -> None:
         if not math.isfinite(delay) or delay < 0:
             raise ValueError('Delay must be finite and non-negative')
         self.delay = delay
+        self.diagnostic_secrets = tuple(diagnostic_secrets)
         self.session = requests.Session()
         self.session.headers['User-Agent'] = USER_AGENT
         self.session.headers['Accept-Encoding'] = 'deflate, gzip'
@@ -156,7 +158,9 @@ class CanalClient:
         secret_names = {'tokenpass', 'authorization', 'proxy-authorization',
                         'cookie', 'set-cookie'}
         authentication = getattr(self, 'authentication', None)
-        values = list(authentication.secrets) if authentication is not None else []
+        values = list(self.diagnostic_secrets)
+        if authentication is not None:
+            values.extend(authentication.secrets)
         for mapping in (self.session.headers, headers or {},
                         getattr(response, 'headers', {}) if response is not None else {}):
             if isinstance(mapping, Mapping):
