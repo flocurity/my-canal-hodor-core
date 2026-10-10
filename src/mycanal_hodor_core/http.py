@@ -155,7 +155,8 @@ class CanalClient:
                             response: requests.Response | None = None) -> tuple[str, ...]:
         secret_names = {'tokenpass', 'xx-profile-id', 'authorization', 'proxy-authorization',
                         'cookie', 'set-cookie'}
-        values = []
+        authentication = getattr(self, 'authentication', None)
+        values = list(authentication.secrets) if authentication is not None else []
         for mapping in (self.session.headers, headers or {},
                         getattr(response, 'headers', {}) if response is not None else {}):
             if isinstance(mapping, Mapping):

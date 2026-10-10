@@ -6,7 +6,7 @@ import re
 import traceback
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-_SECRET_KEYS = {'tokenpass', 'xxprofileid', 'authorization', 'proxyauthorization',
+_SECRET_KEYS = {'passid', 'tokenpass', 'xxprofileid', 'authorization', 'proxyauthorization',
                 'cookie', 'setcookie', 'credentials', 'password', 'accesstoken', 'refreshtoken', 'profileid', 'userid', 'subscriberid', 'sig', 'expires', 'exp', 'policy', 'keypairid'}
 _TOKEN_PATH = re.compile(r'(/api/v2/mycanal/[^/\s?]+/)[^/\s?]+(?=/)')
 
@@ -29,7 +29,7 @@ def redact(value: object, secrets: tuple[str, ...] = ()) -> object:
             if secret:
                 text = text.replace(secret, '[REDACTED]')
         # Text error envelopes and tracebacks can contain header assignments.
-        text = re.sub(r'(?im)(\b(?:tokenPass|xx-profile-id|authorization|proxy-authorization|cookie|set-cookie|password|access[_-]?token|refresh[_-]?token)\s*[:=]\s*)[^\r\n]+', r'\1[REDACTED]', text)
+        text = re.sub(r'(?im)(\b(?:pass[_-]?id|tokenPass|xx-profile-id|authorization|proxy-authorization|cookie|set-cookie|password|access[_-]?token|refresh[_-]?token)\s*[:=]\s*)[^\r\n]+', r'\1[REDACTED]', text)
         text = _TOKEN_PATH.sub(r'\1[REDACTED]', text)
         if text.startswith(('https://', 'http://')):
             try:

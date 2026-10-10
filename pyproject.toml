@@ -3,7 +3,11 @@ name = "mycanal-hodor-core"
 version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ['requests>=2.34.2', 'structlog>=26.1.0']
+dependencies = [
+    "keyring>=25.7.0",
+    'requests>=2.34.2',
+    'structlog>=26.1.0',
+]
 license = "MIT"
 license-files = ["LICENSE", "NOTICE"]
 

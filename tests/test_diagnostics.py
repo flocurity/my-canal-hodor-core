@@ -148,3 +148,15 @@ def test_parser_diagnostic_failure_preserves_rejection(monkeypatch):
     monkeypatch.setattr(episodes, 'log', logger)
     with pytest.raises(ValueError, match='Incomplete pagination: no verified continuation URL'):
         episodes.parse_catalog({'episodes': {'contents': [], 'paging': {}}}, 'season_mammouth')
+def test_pass_id_and_token_history_are_redacted():
+    from mycanal_hodor_core.diagnostics import redact
+    from mycanal_hodor_core.http import CanalClient
+    from unittest.mock import Mock
+    payload = {'passId': 'PRIVATE', 'nested': {'pass_id': 'PRIVATE'},
+               'text': 'passId: PRIVATE'}
+    assert 'PRIVATE' not in str(redact(payload))
+    with CanalClient() as client:
+        client.authentication = Mock(secrets=['PASS_SECRET', 'OLD_TOKEN', 'NEW_TOKEN'])
+        secrets = client._diagnostic_secrets({'tokenPass': 'NEW_TOKEN'})
+        assert all(value in secrets for value in ('PASS_SECRET', 'OLD_TOKEN', 'NEW_TOKEN'))
+        assert 'OLD_TOKEN' not in str(redact({'echo': 'OLD_TOKEN'}, secrets))
