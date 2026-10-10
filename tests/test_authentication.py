@@ -16,7 +16,8 @@ def token_response(token='FAKE_MAMMOTH_TOKEN'):
                      'macroEligibility': 'synthetic', 'microEligibility': 'synthetic'}}}
 
 
-def test_full_bootstrap_profile_zero_and_explicit_selection(monkeypatch):
+@pytest.mark.parametrize('selected_index', [0, 1])
+def test_full_bootstrap_profile_zero_and_explicit_selection(monkeypatch, selected_index):
     obj = auth.PassIdAuth('FAKE_PASS_ID')
     post = Mock(return_value=token_response())
     get = Mock(side_effect=[{'URLAuthenticate': auth.BASE + '/authenticate.json/webapp/6.0'},
@@ -26,15 +27,18 @@ def test_full_bootstrap_profile_zero_and_explicit_selection(monkeypatch):
         {'token': 'a' * 32, 'settings': {'userStatus': 'abonne'}}])
     monkeypatch.setattr(obj, '_json', post)
     monkeypatch.setattr(obj, '_get', get)
-    monkeypatch.setattr(auth, 'choose_profile', lambda profiles, path, **kwargs: profiles[1])
+    monkeypatch.setattr(auth, 'choose_profile', lambda profiles, path, **kwargs: profiles[selected_index])
     result = obj.bootstrap()
-    assert result.profile_id == '42'
+    profile_id = ('0', '42')[selected_index]
+    assert result.profile_id == profile_id
+    assert profile_id not in obj.secrets
+    assert obj.secrets == ['FAKE_PASS_ID', 'FAKE_MAMMOTH_TOKEN', 'a' * 32]
     assert result.token_pass == 'FAKE_MAMMOTH_TOKEN'
     assert get.call_args_list[0].args[1]['xx-profile-id'] == '0'
     assert get.call_args_list[1].args[1]['xx-profile-id'] == '0'
     assert 'deviceId' not in get.call_args_list[0].args[0]
     assert 'userId' not in get.call_args_list[0].args[0]
-    assert get.call_args_list[2].args[1]['xx-profile-id'] == '42'
+    assert get.call_args_list[2].args[1]['xx-profile-id'] == profile_id
     assert post.call_args.kwargs['data']['passId'] == 'FAKE_PASS_ID'
 
 

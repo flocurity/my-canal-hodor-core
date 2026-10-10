@@ -153,7 +153,7 @@ class CanalClient:
 
     def _diagnostic_secrets(self, headers: dict[str, str] | None = None,
                             response: requests.Response | None = None) -> tuple[str, ...]:
-        secret_names = {'tokenpass', 'xx-profile-id', 'authorization', 'proxy-authorization',
+        secret_names = {'tokenpass', 'authorization', 'proxy-authorization',
                         'cookie', 'set-cookie'}
         authentication = getattr(self, 'authentication', None)
         values = list(authentication.secrets) if authentication is not None else []

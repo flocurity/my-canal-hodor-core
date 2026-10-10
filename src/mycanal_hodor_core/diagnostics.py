@@ -25,9 +25,12 @@ def redact(value: object, secrets: tuple[str, ...] = ()) -> object:
         return [redact(v, secrets) for v in value]
     if isinstance(value, str):
         text = value
-        for secret in secrets:
-            if secret:
-                text = text.replace(secret, '[REDACTED]')
+        ordered_secrets = sorted({secret for secret in secrets if secret},
+                                 key=lambda secret: (-len(secret), secret))
+        if ordered_secrets:
+            # One pass avoids modifying another credential or a replacement marker.
+            pattern = '|'.join(re.escape(secret) for secret in ordered_secrets)
+            text = re.sub(pattern, '[REDACTED]', text)
         # Text error envelopes and tracebacks can contain header assignments.
         text = re.sub(r'(?im)(\b(?:pass[_-]?id|tokenPass|xx-profile-id|authorization|proxy-authorization|cookie|set-cookie|password|access[_-]?token|refresh[_-]?token)\s*[:=]\s*)[^\r\n]+', r'\1[REDACTED]', text)
         text = _TOKEN_PATH.sub(r'\1[REDACTED]', text)

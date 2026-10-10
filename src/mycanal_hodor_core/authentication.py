@@ -257,7 +257,6 @@ class PassIdAuth:
         invalid_preference = remembered_profile(path) not in {str(p['profileId']) for p in profiles}
         profile = choose_profile(profiles, path, invalidate_preference=False)
         pid = str(profile['profileId'])
-        self.secrets.append(pid)
         self.headers['xx-profile-id'] = pid
         url = init.get('URLAuthenticate')
         if not isinstance(url, str) or urlsplit(url).path != '/api/v2/mycanal/authenticate.json/webapp/6.0':

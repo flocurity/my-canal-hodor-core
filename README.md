@@ -39,6 +39,11 @@ redaction. HTTP diagnostics include this registry when a client is given an
 `authentication` attribute. Authentication request failures do not retain sensitive
 underlying exception contexts. Imports never access keyring, prompt or network.
 
+Profile IDs are context identifiers, not credential substrings: they are excluded
+from secret registries, while structured profile fields/headers remain redacted.
+Registered credentials are replaced in one regex pass, with longer alternatives
+first and normal left-to-right matching. Replacement markers are not reprocessed.
+
 `ensure(force=...)` implements renewal; applications decide when to call it.
 `recover_authentication()` recognizes credential-bearing 401/403 responses,
 renews through an optional application coordinator, and updates current headers.

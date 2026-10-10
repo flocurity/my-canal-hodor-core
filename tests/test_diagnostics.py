@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+from itertools import permutations
 from unittest.mock import Mock
 import pytest
 import structlog
@@ -8,6 +9,48 @@ from mycanal_hodor_core import http
 from mycanal_hodor_core.console import configure_console
 from mycanal_hodor_core.logging import get_logger
 from mycanal_hodor_core.diagnostics import debug_failure, redact
+
+
+@pytest.mark.parametrize('secrets', list(permutations(('ABC', 'ABCDE', 'CDE'))))
+def test_registered_secrets_are_replaced_once_longest_first(secrets):
+    assert redact('ABCDE ABC ABCDE CDE', secrets) == '[REDACTED] [REDACTED] [REDACTED] [REDACTED]'
+
+
+@pytest.mark.parametrize('secrets', [('abc', 'bcd'), ('bcd', 'abc')])
+def test_shifted_overlaps_use_normal_left_to_right_matching(secrets):
+    assert redact('abcd', secrets) == '[REDACTED]d'
+
+
+def test_literal_secrets_empty_values_duplicates_and_adjacent_occurrences():
+    assert redact('a.b+a.b+ axb+', ('', 'a.b+', 'a.b+')) == '[REDACTED][REDACTED] axb+'
+    assert redact('unchanged', ('',)) == 'unchanged'
+
+
+def test_replacement_markers_are_not_processed_again():
+    assert redact('PRIVATE', ('PRIVATE', 'REDACTED')) == '[REDACTED]'
+
+
+def test_numeric_credentials_remain_secrets():
+    assert redact('credential 0', ('0',)) == 'credential [REDACTED]'
+
+
+@pytest.mark.parametrize('profile_id', ['0', '42'])
+def test_profile_headers_do_not_register_business_substrings(profile_id):
+    with http.CanalClient() as client:
+        client.authentication = Mock(secrets=['OLD_SECRET', 'NEW_SECRET'])
+        client.session.headers['xx-profile-id'] = profile_id
+        response = Mock(headers={'XX-Profile-ID': profile_id})
+        secrets = client._diagnostic_secrets(
+            {'xx-profile-id': profile_id, 'tokenPass': 'NEW_SECRET'}, response)
+    assert profile_id not in secrets
+    assert {'OLD_SECRET', 'NEW_SECRET'} <= set(secrets)
+    text = 'Film 2000, 1942, 2042-10-10, HTTP 200/429, content 42_50001'
+    assert redact(text, secrets) == text
+    assert redact({'profileId': int(profile_id), 'xx-profile-id': profile_id,
+                   'profileToken': 'PRIVATE', 'profileIdToken': 'PRIVATE',
+                   'nested': [{'echo': 'OLD_SECRET NEW_SECRET', 'title': text}]}, secrets) == {
+                       'nested': [{'echo': '[REDACTED] [REDACTED]', 'title': text}]}
+    assert redact('xx-profile-id: ' + profile_id, secrets) == 'xx-profile-id: [REDACTED]'
 
 
 @pytest.fixture
