@@ -276,4 +276,5 @@ class PassIdAuth:
         if invalid_preference:
             path.unlink(missing_ok=True)
         remember_profile(path, pid)
-        return HodorRuntimeContext(token, self.headers['tokenPass'], pid)
+        return HodorRuntimeContext(token, self.headers['tokenPass'], pid,
+                                   profile_name=profile['displayName'])

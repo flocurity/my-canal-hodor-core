@@ -31,6 +31,7 @@ def test_full_bootstrap_profile_zero_and_explicit_selection(monkeypatch, selecte
     result = obj.bootstrap()
     profile_id = ('0', '42')[selected_index]
     assert result.profile_id == profile_id
+    assert result.profile_name == ('Default', 'Mammoth')[selected_index]
     assert profile_id not in obj.secrets
     assert obj.secrets == ['FAKE_PASS_ID', 'FAKE_MAMMOTH_TOKEN', 'a' * 32]
     assert result.token_pass == 'FAKE_MAMMOTH_TOKEN'

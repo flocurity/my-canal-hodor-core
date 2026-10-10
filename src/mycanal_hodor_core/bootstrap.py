@@ -21,6 +21,7 @@ class HodorRuntimeContext:
     profile_id: str
     query_parameters: tuple[tuple[str, str], ...] = ()
     request_url: str = ""
+    profile_name: str | None = None
 
     @property
     def headers(self) -> dict[str, str]:

@@ -30,6 +30,9 @@ now a Core dependency. `vault('set'/'get'/'delete')` never falls back to plainte
 `PassIdAuth` performs createToken, profile-zero init/Profiles, explicit selection,
 and authenticate; it writes only the profile ID after successful authentication.
 Applications supply independent `profile_file` paths via `profile_path(app_name)`.
+Successful passId bootstrap also exposes the selected `displayName` as optional
+`HodorRuntimeContext.profile_name`. cURL leaves it `None`; consumers can retain
+an existing display name without confusing this metadata with credentials.
 An absent remembered profile has no default; retirement/replacement is deferred
 until authentication succeeds. Network/authentication failures preserve preferences.
 
