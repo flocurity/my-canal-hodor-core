@@ -57,3 +57,13 @@ transport does not rotate or replay automatically. Catalog retains favorite-wind
 validation and service-specific policies; Expiry owns playlist acquisition and its
 one-recovery budget. An optional rotation observer keeps application presentation
 outside Core. cURL remains inert transient context without automatic renewal.
+
+
+Applications may opt into JSONL alongside the existing console renderer with
+`configure_console(log_directory="logs", secrets=lambda: authentication.secrets)`.
+The returned Path identifies an exclusively created, owner-only file. A live
+secret supplier covers token rotations using the shared cached sanitizer.
+ProcessorFormatter keeps console presentation separate from full ISO UTC,
+structured JSONL. Both handlers flush each event; reconfiguration closes previous
+owned handlers and avoids root-logger propagation. Omitting log_directory creates
+no file, including for existing Expiry callers.
