@@ -267,3 +267,37 @@ def test_pass_id_and_token_history_are_redacted():
         secrets = client._diagnostic_secrets({'tokenPass': 'NEW_TOKEN'})
         assert all(value in secrets for value in ('PASS_SECRET', 'OLD_TOKEN', 'NEW_TOKEN'))
         assert 'OLD_TOKEN' not in str(redact({'echo': 'OLD_TOKEN'}, secrets))
+
+
+def test_redaction_prepares_one_pattern_for_nested_payloads_and_equivalent_sets():
+    from mycanal_hodor_core.diagnostics import _secret_pattern
+
+    _secret_pattern.cache_clear()
+    payload = {'nested': [{'echo': 'OLD NEW'} for _ in range(20)]}
+    expected = {'nested': [{'echo': '[REDACTED] [REDACTED]'} for _ in range(20)]}
+    assert redact(payload, ('OLD', 'NEW')) == expected
+    assert redact(payload, ('NEW', '', 'OLD', 'NEW')) == expected
+    assert _secret_pattern.cache_info().misses == 1
+    assert _secret_pattern.cache_info().hits == 1
+
+
+def test_redaction_cache_refreshes_when_credentials_rotate():
+    from mycanal_hodor_core.diagnostics import _secret_pattern
+
+    _secret_pattern.cache_clear()
+    secrets = ['OLD']
+    assert redact('OLD NEW', secrets) == '[REDACTED] NEW'
+    secrets.append('NEW')
+    assert redact({'OLD-key': 'discard', 'echo': 'OLD NEW'}, secrets) == {
+        'echo': '[REDACTED] [REDACTED]'}
+    assert _secret_pattern.cache_info().misses == 2
+
+
+def test_redaction_pattern_cache_is_bounded():
+    from mycanal_hodor_core.diagnostics import _secret_pattern
+
+    _secret_pattern.cache_clear()
+    for index in range(12):
+        secret = f'SYNTHETIC_PRIVATE_{index}'
+        assert redact(secret, (secret,)) == '[REDACTED]'
+    assert _secret_pattern.cache_info().currsize == 4

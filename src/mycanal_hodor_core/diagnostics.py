@@ -4,6 +4,7 @@ import logging
 import math
 import re
 import traceback
+from functools import lru_cache
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 _SECRET_KEYS = {'passid', 'tokenpass', 'xxprofileid', 'authorization', 'proxyauthorization',
@@ -16,24 +17,33 @@ def _secret_key(key: str) -> bool:
     return name in _SECRET_KEYS or 'token' in name or 'signature' in name
 
 
+@lru_cache(maxsize=4)
+def _secret_pattern(secrets: frozenset[str]) -> re.Pattern[str] | None:
+    # Reuse preparation across payloads; bound retained sets as credentials rotate.
+    ordered = sorted(secrets, key=lambda secret: (-len(secret), secret))
+    return re.compile('|'.join(re.escape(secret) for secret in ordered)) if ordered else None
+
+
 def redact(value: object, secrets: tuple[str, ...] = ()) -> object:
+    pattern = _secret_pattern(frozenset(secret for secret in secrets if secret))
+    return _redact(value, pattern)
+
+
+def _redact(value: object, pattern: re.Pattern[str] | None) -> object:
     if isinstance(value, dict):
         if isinstance(value.get('name'), str) and _secret_key(value['name']):
             return {'name': '[REDACTED HEADER]'}
         # Drop secret-bearing keys instead of masking them into colliding names.
-        return {str(k): redact(v, secrets) for k, v in value.items()
+        return {str(k): _redact(v, pattern) for k, v in value.items()
                 if not _secret_key(str(k))
-                and not any(secret and secret in str(k) for secret in secrets)}
+                and (pattern is None or pattern.search(str(k)) is None)}
     if isinstance(value, (list, tuple)):
-        return [redact(v, secrets) for v in value]
+        return [_redact(v, pattern) for v in value]
     if isinstance(value, str):
         text = value
-        ordered_secrets = sorted({secret for secret in secrets if secret},
-                                 key=lambda secret: (-len(secret), secret))
-        if ordered_secrets:
+        if pattern is not None:
             # One pass avoids modifying another credential or a replacement marker.
-            pattern = '|'.join(re.escape(secret) for secret in ordered_secrets)
-            text = re.sub(pattern, '[REDACTED]', text)
+            text = pattern.sub('[REDACTED]', text)
         # Text error envelopes and tracebacks can contain header assignments.
         text = re.sub(r'(?im)(\b(?:pass[_-]?id|tokenPass|xx-profile-id|authorization|proxy-authorization|cookie|set-cookie|password|access[_-]?token|refresh[_-]?token)\s*[:=]\s*)[^\r\n]+', r'\1[REDACTED]', text)
         text = _TOKEN_PATH.sub(r'\1[REDACTED]', text)

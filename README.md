@@ -38,7 +38,9 @@ until authentication succeeds. Network/authentication failures preserve preferen
 
 `HodorRuntimeContext` stays immutable. Renewable callers use `authentication.headers`
 and retain `authentication.secrets`, including passId and all issued tokens, for
-redaction. HTTP diagnostics include this registry when a client is given an
+redaction. Secret matching patterns are cached in memory in a bounded cache,
+rebuilt when the registered set changes, and reused across nested payloads.
+Historical tokens remain protected. HTTP diagnostics include this registry when a client is given an
 `authentication` attribute. Authentication request failures do not retain sensitive
 underlying exception contexts. Imports never access keyring, prompt or network.
 
