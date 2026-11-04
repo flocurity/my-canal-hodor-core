@@ -218,6 +218,32 @@ class CanalClient:
         finally:
             response.close()
 
+    def set_playlist(self, hodor_token: str, content_id: str, favorite: bool,
+                     headers: dict[str, str]) -> None:
+        """One constrained mutation. Ambiguous transport failures are never retried.
+
+        A caller must read back personal state before updating local data or
+        deciding whether another mutation is necessary.
+        """
+        if (not re.fullmatch(r'[a-fA-F0-9]{32}', hodor_token)
+                or not re.fullmatch(r'[0-9]+_[0-9]+', content_id)
+                or type(favorite) is not bool
+                or not headers.get('tokenPass') or not headers.get('xx-profile-id')):
+            raise HodorError('Invalid playlist mutation context', 'validation')
+        url = f'https://hodor.canalplus.pro/api/v2/mycanal/me/{hodor_token}/lists/playlist/contents'
+        try:
+            response = self.session.request('PUT' if favorite else 'DELETE', url,
+                headers=headers, json={'contentIds': [content_id]},
+                timeout=TIMEOUT_SECONDS, allow_redirects=False)
+        except requests.RequestException:
+            raise HodorError('Playlist mutation outcome unknown; verify personal state', 'network') from None
+        try:
+            if response.status_code != 204:
+                raise HodorError(f'Playlist mutation HTTP {response.status_code}',
+                                 status_code=response.status_code)
+        finally:
+            response.close()
+
     def _notify_request_failure(self, reason: str, attempt: int) -> None:
         observer = getattr(self, 'failure_observer', None)
         if callable(observer):

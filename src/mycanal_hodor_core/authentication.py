@@ -237,7 +237,7 @@ class PassIdAuth:
         if force or self.renewed_at is None or time.monotonic() - self.renewed_at >= RENEW_AFTER:
             self.renew()
 
-    def bootstrap(self) -> HodorRuntimeContext:
+    def bootstrap(self, *, profile_id: str | None = None) -> HodorRuntimeContext:
         self.renew()
         initial = {**self.headers, 'xx-profile-id': '0'}
         init = self._get(BASE + '/me/cpfra/init/webapp/6.0?' + urlencode({
@@ -255,7 +255,12 @@ class PassIdAuth:
         # Delay destructive preference changes until final authentication succeeds.
         # An absent remembered profile still has no default during selection.
         invalid_preference = remembered_profile(path) not in {str(p['profileId']) for p in profiles}
-        profile = choose_profile(profiles, path, invalidate_preference=False)
+        if profile_id is None:
+            profile = choose_profile(profiles, path, invalidate_preference=False)
+        else:
+            profile = next((p for p in profiles if str(p['profileId']) == profile_id), None)
+            if profile is None:
+                raise BootstrapError('Selected profile is unavailable')
         pid = str(profile['profileId'])
         self.headers['xx-profile-id'] = pid
         url = init.get('URLAuthenticate')
@@ -273,8 +278,9 @@ class PassIdAuth:
         if not isinstance(token, str) or not re.fullmatch('[a-fA-F0-9]{32}', token) or not isinstance(result.get('settings'), dict) or result['settings'].get('userStatus') == 'prospect':
             raise BootstrapError('Invalid authenticated Hodor context')
         self.secrets.append(token)
-        if invalid_preference:
-            path.unlink(missing_ok=True)
-        remember_profile(path, pid)
+        if profile_id is None:
+            if invalid_preference:
+                path.unlink(missing_ok=True)
+            remember_profile(path, pid)
         return HodorRuntimeContext(token, self.headers['tokenPass'], pid,
                                    profile_name=profile['displayName'])
