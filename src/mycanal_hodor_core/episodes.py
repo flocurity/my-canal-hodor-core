@@ -14,7 +14,7 @@ def positive_number(value: object) -> int | None:
 
 
 def episode_number(value: object) -> int | None:
-    """Explicit Hodor numbering includes zero; absence alone uses a synthetic ID."""
+    """Explicit Hodor numbering includes zero; absence remains unknown."""
     return value if type(value) is int and value >= 0 else None
 
 
@@ -39,14 +39,14 @@ def parse_duration_label(value: object) -> int | None:
 
 @dataclass(frozen=True)
 class Season:
-    content_id: str
-    number: int
+    content_id: str | None
+    number: int | None
 
 
 @dataclass(frozen=True)
 class Episode:
     content_id: str
-    number: int
+    number: int | None
     duration_minutes: int | None
     availability_end_date: int | float | None
     title: str | None = None
@@ -59,9 +59,8 @@ class SeasonCatalog:
     episodes: tuple[Episode, ...]
 
 def validate_catalog(season: Season, seasons: tuple[Season, ...], episodes: list[Episode]) -> None:
-    if (not seasons or season not in seasons
-            or len({s.content_id for s in seasons}) != len(seasons)
-            or len({s.number for s in seasons}) != len(seasons)):
+    if (season.content_id is not None and (not seasons or season not in seasons
+            or len({s.content_id for s in seasons}) != len(seasons))):
         raise ValueError('Missing or ambiguous season selector')
     ids = [e.content_id for e in episodes if e.content_id]
     # Hodor may assign the same editorial number to distinct units.
@@ -69,7 +68,7 @@ def validate_catalog(season: Season, seasons: tuple[Season, ...], episodes: list
         raise ValueError('Duplicate episode identities')
 
 
-def episode_continuation(paging: object, season_id: str, brand_id: str) -> str | None:
+def episode_continuation(paging: object, season_id: str | None, brand_id: str) -> str | None:
     """Validate the observed id pagination; never construct a continuation."""
     if isinstance(paging, dict) and paging.get('hasNextPage') is False:
         return None
@@ -79,7 +78,7 @@ def episode_continuation(paging: object, season_id: str, brand_id: str) -> str |
         raise ValueError('Incomplete pagination: no verified continuation URL')
     url = paging['URLPage']
     validate_api_url(url, 'episodes')
-    if urlsplit(url).path.rsplit('/', 1)[-1] != brand_id or url_season(url) != season_id:
+    if urlsplit(url).path.rsplit('/', 1)[-1] != brand_id or (url_season(url) or None) != season_id:
         raise ValueError('Inconsistent episodes continuation target')
     cursors = [v for k, v in parse_qsl(urlsplit(url).query, keep_blank_values=True) if k == 'after']
     cursor = paging.get('idEnd')
@@ -88,7 +87,7 @@ def episode_continuation(paging: object, season_id: str, brand_id: str) -> str |
     return url
 
 
-def parse_catalog(payload: dict, season_id: str,
+def parse_catalog(payload: dict, season_id: str | None,
                   fallback_selector: list | None = None, *,
                   diagnostic_secrets: tuple[str, ...] = (),
                   continuation_brand_id: str | None = None,
@@ -113,6 +112,11 @@ def parse_catalog(payload: dict, season_id: str,
     if type(count) is int and count != len(block['contents']):
         raise ValueError('Paging count disagrees with returned episode count')
     selector = payload.get('selector', fallback_selector)
+    direct = season_id is None
+    if direct and selector is not None:
+        raise ValueError('Unexpected selector for direct episodes')
+    if direct:
+        selector = []
     if not isinstance(selector, list):
         raise ValueError('Missing season selector')
     seasons, urls = [], {}
@@ -129,30 +133,18 @@ def parse_catalog(payload: dict, season_id: str,
         if isinstance(click, dict) and isinstance(click.get('URLPage'), str):
             urls[value['contentID']] = click['URLPage']
     current = [season for season in seasons if season.content_id == season_id]
-    if len(current) != 1:
+    if not direct and len(current) != 1:
         raise ValueError('Requested season absent from selector')
-    season = current[0]
+    season = Season(None, None) if direct else current[0]
     episodes = []
     # An omitted season coordinate inherits the validated catalog membership.
     # Present coordinates must still agree; null is not an omission.
     for episode_index, value in enumerate(block['contents']):
-        number = None
-        if isinstance(value, dict):
-            if 'episodeNumber' in value:
-                number = episode_number(value['episodeNumber'])
-            else:
-                # Technical identity only: never derive a viewing order from this number.
-                content_id = identifier(value.get('contentID'))
-                digits = content_id.replace('_', '')
-                if digits and re.fullmatch(r'[0-9]+', digits):
-                    try:
-                        number = positive_number(int(digits))
-                    except ValueError:
-                        # Excessively long integers are untrusted input too.
-                        pass
-        if (not isinstance(value, dict) or number is None
-                or ('seasonNumber' in value
-                    and season_number(value['seasonNumber']) != season.number)):
+        number = episode_number(value.get('episodeNumber')) if isinstance(value, dict) else None
+        if (not isinstance(value, dict) or not identifier(value.get('contentID'))
+                or ('episodeNumber' in value and value['episodeNumber'] is not None and number is None)
+                or ('seasonNumber' in value and (direct or
+                    season_number(value['seasonNumber']) != season.number))):
             error = ValueError('Missing or inconsistent episode coordinates')
             debug_failure(log, 'series_catalog_debug', error, diagnostic_secrets,
                           season_id=season_id, expected_season_number=season.number,

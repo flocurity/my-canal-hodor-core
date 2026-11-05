@@ -45,7 +45,9 @@ def _redact(value: object, pattern: re.Pattern[str] | None) -> object:
             # One pass avoids modifying another credential or a replacement marker.
             text = pattern.sub('[REDACTED]', text)
         # Text error envelopes and tracebacks can contain header assignments.
-        text = re.sub(r'(?im)(\b(?:pass[_-]?id|tokenPass|xx-profile-id|authorization|proxy-authorization|cookie|set-cookie|password|access[_-]?token|refresh[_-]?token)\s*[:=]\s*)[^\r\n]+', r'\1[REDACTED]', text)
+        text = re.sub(r'(?im)(\b(?:pass[_-]?id|tokenPass|xx-profile-id|authorization|proxy-authorization|password|access[_-]?token|refresh[_-]?token)\s*[:=]\s*)[^\r\n]+', r'\1[REDACTED]', text)
+        # A programme title can contain 'cookie :'; only header lines are cookies.
+        text = re.sub(r'(?im)^(\s*(?:cookie|set-cookie)\s*[:=]\s*)[^\r\n]+', r'\1[REDACTED]', text)
         text = _TOKEN_PATH.sub(r'\1[REDACTED]', text)
         if text.startswith(('https://', 'http://')):
             try:

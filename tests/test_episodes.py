@@ -1,6 +1,6 @@
 from urllib.parse import parse_qs, urlsplit
 import pytest
-from mycanal_hodor_core.episodes import parse_duration_label, extract_navigation
+from mycanal_hodor_core.episodes import parse_duration_label, extract_navigation, parse_catalog, Season
 
 @pytest.mark.parametrize('label, expected', [
     ('57 min', 57), ('1h02', 62), ('1h31', 91), (' 1 h 02 min ', 62),
@@ -118,7 +118,7 @@ def test_episode_season_omission_uses_validated_catalog(context_number, coordina
             parse_catalog(payload, 'season_mammouth')
 
 
-@pytest.mark.parametrize('episode_coordinate', [{}, {'episodeNumber': None},
+@pytest.mark.parametrize('episode_coordinate', [
     {'episodeNumber': -1}, {'episodeNumber': True},
     {'episodeNumber': '177'}, {'episodeNumber': 177.0}])
 def test_omitted_season_does_not_relax_episode_number(episode_coordinate):
@@ -132,11 +132,11 @@ def test_omitted_season_does_not_relax_episode_number(episode_coordinate):
 
 @pytest.mark.parametrize('coordinate,accepted', [
     ({'episodeNumber': 7}, True), ({}, True),
-    ({'episodeNumber': None}, False), ({'episodeNumber': '7'}, False),
+    ({'episodeNumber': None}, True), ({'episodeNumber': '7'}, False),
     ({'episodeNumber': True}, False), ({'episodeNumber': 0}, True),
     ({'episodeNumber': -1}, False), ({'episodeNumber': 7.0}, False),
 ])
-def test_synthetic_episode_number_only_for_absent_key(coordinate, accepted):
+def test_absent_episode_number_stays_unknown(coordinate, accepted):
     from mycanal_hodor_core.episodes import parse_catalog
     payload = {'selector': [{'contentID': 'season_mammouth', 'seasonNumber': 2}],
                'episodes': {'paging': {'hasNextPage': False, 'hasPreviousPage': False},
@@ -148,12 +148,12 @@ def test_synthetic_episode_number_only_for_absent_key(coordinate, accepted):
         first, _ = parse_catalog(payload, 'season_mammouth')
         second, _ = parse_catalog(payload, 'season_mammouth')
         assert first == second
-        assert first.episodes[0].number == coordinate.get('episodeNumber', 2621952550006)
+        assert first.episodes[0].number == coordinate.get('episodeNumber')
         assert ('episodeNumber' in payload['episodes']['contents'][0]) == ('episodeNumber' in coordinate)
 
 
-@pytest.mark.parametrize('content_id', ['episode_gptou', '', None, True, '12/34', '-123', '1 23', '0_0'])
-def test_unconvertible_episode_identity_has_no_synthetic_fallback(content_id):
+@pytest.mark.parametrize('content_id', ['', None, True, '12/34', '1 23'])
+def test_invalid_episode_identity_is_rejected_without_number(content_id):
     from mycanal_hodor_core.episodes import parse_catalog
     payload = {'selector': [{'contentID': 'season_mammouth', 'seasonNumber': 2}],
                'episodes': {'paging': {'hasNextPage': False, 'hasPreviousPage': False},
@@ -162,7 +162,7 @@ def test_unconvertible_episode_identity_has_no_synthetic_fallback(content_id):
         parse_catalog(payload, 'season_mammouth')
 
 
-def test_mixed_catalog_preserves_uniqueness_for_synthetic_numbers():
+def test_mixed_catalog_preserves_order_and_unknown_numbers():
     from mycanal_hodor_core.episodes import parse_catalog
     payload = {'selector': [{'contentID': 'season_mammouth', 'seasonNumber': 2}],
                'episodes': {'paging': {'hasNextPage': False, 'hasPreviousPage': False},
@@ -170,10 +170,10 @@ def test_mixed_catalog_preserves_uniqueness_for_synthetic_numbers():
                                          {'contentID': '26008498_50006', 'durationLabel': '57 min'},
                                          {'contentID': 'episode_gptou', 'episodeNumber': 3, 'durationLabel': '57 min'}]}}
     catalog, _ = parse_catalog(payload, 'season_mammouth')
-    assert [episode.number for episode in catalog.episodes] == [2621952550006, 2600849850006, 3]
+    assert [episode.number for episode in catalog.episodes] == [None, None, 3]
     payload['episodes']['contents'][2]['episodeNumber'] = 2621952550006
     repeated_number, _ = parse_catalog(payload, 'season_mammouth')
-    assert [e.number for e in repeated_number.episodes] == [2621952550006, 2600849850006, 2621952550006]
+    assert [e.number for e in repeated_number.episodes] == [None, None, 2621952550006]
     payload['episodes']['contents'][2]['contentID'] = '26219525_50006'
     with pytest.raises(ValueError, match='Duplicate episode identities'):
         parse_catalog(payload, 'season_mammouth')
@@ -239,3 +239,20 @@ def test_long_single_season_catalog_with_repeated_editorial_numbers():
     with pytest.raises(ValueError, match='Duplicate episode identities'):
         validate_catalog(catalog.season, catalog.seasons,
                          list(catalog.episodes) + [catalog.episodes[0]])
+
+
+def test_direct_episodes_keep_unknown_numbers_and_observed_order():
+    payload={'episodes': {'contents': [{'contentID':'z'}, {'contentID':'a','episodeNumber':None}],
+        'paging': {'hasNextPage':False,'hasPreviousPage':False}}}
+    catalog,urls=parse_catalog(payload,None)
+    assert catalog.season==Season(None,None)
+    assert catalog.seasons==()
+    assert [(e.content_id,e.number) for e in catalog.episodes]==[('z',None),('a',None)]
+    assert urls=={}
+
+
+def test_duplicate_season_numbers_are_distinct_identities():
+    payload={'selector':[{'contentID':'a','seasonNumber':1},{'contentID':'b','seasonNumber':1}],
+        'episodes':{'contents':[],'paging':{'hasNextPage':False,'hasPreviousPage':False}}}
+    catalog,_=parse_catalog(payload,'a')
+    assert catalog.seasons==(Season('a',1),Season('b',1))

@@ -301,3 +301,12 @@ def test_redaction_pattern_cache_is_bounded():
         secret = f'SYNTHETIC_PRIVATE_{index}'
         assert redact(secret, (secret,)) == '[REDACTED]'
     assert _secret_pattern.cache_info().currsize == 4
+
+
+def test_cookie_programme_title_is_not_a_header_but_real_credentials_are_redacted():
+    from mycanal_hodor_core.diagnostics import redact
+    title='Mon plus beau cookie : le defi de Noel'
+    assert redact(title)==title
+    assert 'PRIVATE' not in redact('Cookie: session=PRIVATE\nSet-Cookie: session=PRIVATE')
+    assert redact({'Cookie':'PRIVATE','title':title})=={'title':title}
+    assert 'PRIVATE' not in redact('Sent header value PRIVATE',('PRIVATE',))
