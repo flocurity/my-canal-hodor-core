@@ -67,3 +67,10 @@ ProcessorFormatter keeps console presentation separate from full ISO UTC,
 structured JSONL. Both handlers flush each event; reconfiguration closes previous
 owned handlers and avoids root-logger propagation. Omitting log_directory creates
 no file, including for existing Expiry callers.
+
+
+`playlist.acquire_playlist_pages` shares strict playlist pagination between Catalog
+and Expiry: duplicate-field validation, opaque cursors, loop checks and explicit
+failure on incomplete retrieval. Consumers own authentication and persistence;
+the primitive never infers favorite removal from absence. Expiry retains its
+existing bounded export policy, while Catalog follows complete pagination.
