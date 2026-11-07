@@ -20,3 +20,8 @@ number is generated from an ID. Season numbers need not be unique when IDs are.
 Unstructured Cookie/Set-Cookie header lines remain masked, while a programme title
 containing “cookie :” is preserved. Structured secret keys and registered secret
 values remain redacted independently.
+
+Technical seasons without a selector retain the caller-validated season identity.
+Absent season numbers remain None; contradictory or invalid structured coordinates
+are rejected. Season.implicit distinguishes an implicit episode list from a
+visible numbered selector. Pagination and list order validations remain unchanged.

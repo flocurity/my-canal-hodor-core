@@ -41,6 +41,7 @@ def parse_duration_label(value: object) -> int | None:
 class Season:
     content_id: str | None
     number: int | None
+    implicit: bool = False
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,28 @@ def episode_continuation(paging: object, season_id: str | None, brand_id: str) -
     return url
 
 
+def implicit_selector(payload: dict, season_id: str) -> list[dict]:
+    """Keep a validated technical season identity without inventing its number."""
+    if not identifier(season_id):
+        raise ValueError('Invalid implicit season identity')
+    rows = payload.get('episodes', {}).get('contents')
+    if not isinstance(rows, list):
+        raise ValueError('Missing episodes contents')
+    numbers = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError('Invalid episode entry')
+        if 'seasonNumber' in row:
+            number = season_number(row['seasonNumber'])
+            if number is None:
+                raise ValueError('Invalid implicit season number')
+            numbers.add(number)
+    if len(numbers) > 1:
+        raise ValueError('Conflicting implicit season numbers')
+    return [{'contentID': season_id, 'seasonNumber': next(iter(numbers), None),
+             'implicit': True, 'default': True}]
+
+
 def parse_catalog(payload: dict, season_id: str | None,
                   fallback_selector: list | None = None, *,
                   diagnostic_secrets: tuple[str, ...] = (),
@@ -112,6 +135,8 @@ def parse_catalog(payload: dict, season_id: str | None,
     if type(count) is int and count != len(block['contents']):
         raise ValueError('Paging count disagrees with returned episode count')
     selector = payload.get('selector', fallback_selector)
+    if selector is None and season_id is not None:
+        selector = implicit_selector(payload, season_id)
     direct = season_id is None
     if direct and selector is not None:
         raise ValueError('Unexpected selector for direct episodes')
@@ -122,13 +147,15 @@ def parse_catalog(payload: dict, season_id: str | None,
     seasons, urls = [], {}
     for selector_index, value in enumerate(selector):
         if (not isinstance(value, dict) or not identifier(value.get('contentID'))
-                or season_number(value.get('seasonNumber')) is None):
+                or (season_number(value.get('seasonNumber')) is None
+                    and not (value.get('implicit') is True and value.get('seasonNumber') is None))):
             error = ValueError('Invalid season selector entry')
             debug_failure(log, 'series_catalog_debug', error, diagnostic_secrets,
                           season_id=season_id, selector_index=selector_index,
                           selector_entry=value)
             raise error
-        seasons.append(Season(value['contentID'], value['seasonNumber']))
+        seasons.append(Season(value['contentID'], value.get('seasonNumber'),
+                              value.get('implicit') is True))
         click = value.get('onClick')
         if isinstance(click, dict) and isinstance(click.get('URLPage'), str):
             urls[value['contentID']] = click['URLPage']

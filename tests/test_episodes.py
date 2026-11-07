@@ -256,3 +256,24 @@ def test_duplicate_season_numbers_are_distinct_identities():
         'episodes':{'contents':[],'paging':{'hasNextPage':False,'hasPreviousPage':False}}}
     catalog,_=parse_catalog(payload,'a')
     assert catalog.seasons==(Season('a',1),Season('b',1))
+
+
+def test_technical_season_without_selector_keeps_unknown_number(fixture_data):
+    payload = fixture_data('episodes_series.json')
+    selected = payload['selector'][0]['contentID']
+    payload.pop('selector')
+    for row in payload['episodes']['contents']:
+        row.pop('seasonNumber', None)
+    catalog, urls = parse_catalog(payload, selected)
+    assert catalog.season == Season(selected, None, True)
+    assert catalog.episodes and not urls
+    assert catalog.season.content_id == selected
+
+
+def test_implicit_season_rejects_conflicting_structured_coordinates(fixture_data):
+    payload = fixture_data('episodes_series.json')
+    selected = payload['selector'][0]['contentID']
+    payload.pop('selector')
+    payload['episodes']['contents'][0]['seasonNumber'] = 987
+    with pytest.raises(ValueError, match='Conflicting implicit season'):
+        parse_catalog(payload, selected)
