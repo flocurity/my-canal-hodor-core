@@ -278,3 +278,23 @@ def test_attempt_timing_success_and_timeout(client, item, monkeypatch):
     assert [x['outcome'] for x in timings] == ['failed', 'response']
     assert [x['status_code'] for x in timings] == [None, 200]
     assert all('url' not in x and 'sensitive' not in str(x) for x in timings)
+
+
+@pytest.mark.parametrize('failures', [[], [requests.ReadTimeout()], [http_response(status=502)]])
+def test_api_request_count_tracks_transport_attempts(client, item, failures):
+    api, session, _ = client
+    assert api.api_request_count == 0
+    session.get.side_effect = [*failures, http_response(payload={'detail': {}})]
+    api.fetch(item.detail_url)
+    assert api.api_request_count == len(failures) + 1 == session.get.call_count
+    with pytest.raises(HodorError):
+        api.get_json('https://example.com/invalid')
+    assert api.api_request_count == len(failures) + 1
+
+
+def test_api_request_count_includes_exhausted_failures(client, item):
+    api, session, _ = client
+    session.get.side_effect = requests.ReadTimeout()
+    with pytest.raises(HodorError):
+        api.fetch(item.detail_url)
+    assert api.api_request_count == MAX_ATTEMPTS

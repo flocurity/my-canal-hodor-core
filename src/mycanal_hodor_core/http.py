@@ -130,6 +130,8 @@ class CanalClient:
         self.session = requests.Session()
         self.session.headers['User-Agent'] = USER_AGENT
         self.session.headers['Accept-Encoding'] = 'deflate, gzip'
+        # Count actual transport attempts, including retries and failed requests.
+        self.api_request_count = 0
         self._has_requested = False
         self._cooldown = 0.0
 
@@ -232,6 +234,7 @@ class CanalClient:
             raise HodorError('Invalid playlist mutation context', 'validation')
         url = f'https://hodor.canalplus.pro/api/v2/mycanal/me/{hodor_token}/lists/playlist/contents'
         try:
+            self.api_request_count += 1
             response = self.session.request('PUT' if favorite else 'DELETE', url,
                 headers=headers, json={'contentIds': [content_id]},
                 timeout=TIMEOUT_SECONDS, allow_redirects=False)
@@ -267,6 +270,7 @@ class CanalClient:
                 outcome = 'failed'
                 status = None
                 try:
+                    self.api_request_count += 1
                     response = self.session.get(
                         url, timeout=TIMEOUT_SECONDS, allow_redirects=False, **options,
                     )

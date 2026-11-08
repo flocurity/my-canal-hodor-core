@@ -25,3 +25,7 @@ Technical seasons without a selector retain the caller-validated season identity
 Absent season numbers remain None; contradictory or invalid structured coordinates
 are rejected. Season.implicit distinguishes an implicit episode list from a
 visible numbered selector. Pagination and list order validations remain unchanged.
+
+`CanalClient.api_request_count` counts actual HTTP attempts, including transport
+failures, retries and playlist mutations. Invalid requests rejected before transport
+are excluded. Consumers can take a difference to measure one execution on a shared client.
